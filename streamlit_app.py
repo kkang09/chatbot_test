@@ -41,8 +41,18 @@ else:
 
         # Generate a response using the OpenAI API.
         stream = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             messages=[
+                {
+                    # 시스템 메시지는 모델의 기본 역할이나 성격을 정의합니다.
+                    # 모델에게 똑똑하고 창의적이라는 역할을 부여합니다.
+                    "role": "system","content": 
+                    """
+                    너는 유명한 여행 유투버야
+                    입력받은 지역의 여행지와 맞집을 추천해줘
+                    여행지와 맛집을 나눠서 숫자 말머리 넣어서 출력해줘
+                    """
+                },
                 {"role": m["role"], "content": m["content"]}
                 for m in st.session_state.messages
             ],
