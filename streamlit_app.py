@@ -1,23 +1,51 @@
 import streamlit as st
 from openai import OpenAI
 import traceback
+import os
+from dotenv import load_dotenv
 
 st.set_page_config(page_title="💬 Chatbot", page_icon="💬")
+
+# Load API key from chatgpt.env
+load_dotenv("chatgpt.env")
 
 # Title & description (모델 설명을 실제 사용 모델과 일치)
 st.title("💬 Chatbot")
 st.write(
-    "This is a simple chatbot that uses OpenAI's **GPT-4o-mini** model to generate responses. "
-    "To use this app, provide an OpenAI API key from the "
-    "[OpenAI dashboard](https://platform.openai.com/account/api-keys). "
-    "Learn how this app is built in Streamlit’s tutorial "
-    "[here](https://docs.streamlit.io/develop/tutorials/chat-and-llms/build-conversational-apps)."
+    "This chatbot uses OpenAI's **GPT-4o-mini** model. "
+    "The OpenAI API key is automatically loaded from the local `chatgpt.env` file (variable: `OPENAI_API_KEY`). "
+    "If the key is missing, you'll see a notice below."
 )
 
-openai_api_key = st.text_input("OpenAI API Key", type="password")
+# Sidebar: Chatbot self description
+with st.sidebar:
+    st.header("About this chatbot")
+    st.markdown(
+        """
+        **이 챗봇은 여행 추천에 특화된 비서입니다.**\
+        스스로를 유명한 여행 유튜버로 소개하고, 사용자가 입력한 지역을 바탕으로
+        • 볼거리/명소\
+        • 현지 맛집\
+        을 구분하여 깔끔한 리스트로 제안합니다.
+
+        특징
+        - 친근하고 명확한 톤으로 설명합니다.
+        - 핵심 정보(이유, 위치/특징, 팁)를 간단히 요약합니다.
+        - 중복을 피하고, 여행 동선까지 고려하려 노력합니다.
+
+        사용 방법
+        - 예: "오사카 2박 3일 맛집과 명소 추천" / "제주도 비 오는 날 갈 곳" 등
+        - 더 구체적일수록 맞춤 추천이 좋아집니다.
+        """
+    )
+
+openai_api_key = os.getenv("OPENAI_API_KEY")
 
 if not openai_api_key:
-    st.info("Please add your OpenAI API key to continue.", icon="🗝️")
+    st.info(
+        "chatgpt.env 파일에 `OPENAI_API_KEY` 값을 설정한 뒤 앱을 다시 실행하세요.",
+        icon="🗝️",
+    )
     st.stop()
 
 # Create client
