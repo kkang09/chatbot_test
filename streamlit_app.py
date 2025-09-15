@@ -1,66 +1,72 @@
 import streamlit as st
 from openai import OpenAI
+import traceback
 
-# Show title and description.
+st.set_page_config(page_title="💬 Chatbot", page_icon="💬")
+
+# Title & description (모델 설명을 실제 사용 모델과 일치)
 st.title("💬 Chatbot")
 st.write(
-    "This is a simple chatbot that uses OpenAI's GPT-3.5 model to generate responses. "
-    "To use this app, you need to provide an OpenAI API key, which you can get [here](https://platform.openai.com/account/api-keys). "
-    "You can also learn how to build this app step by step by [following our tutorial](https://docs.streamlit.io/develop/tutorials/llms/build-conversational-apps)."
+    "This is a simple chatbot that uses OpenAI's **GPT-4o-mini** model to generate responses. "
+    "To use this app, provide an OpenAI API key from the "
+    "[OpenAI dashboard](https://platform.openai.com/account/api-keys). "
+    "Learn how this app is built in Streamlit’s tutorial "
+    "[here](https://docs.streamlit.io/develop/tutorials/chat-and-llms/build-conversational-apps)."
 )
 
-# Ask user for their OpenAI API key via `st.text_input`.
-# Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
-# via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
 openai_api_key = st.text_input("OpenAI API Key", type="password")
+
 if not openai_api_key:
     st.info("Please add your OpenAI API key to continue.", icon="🗝️")
-else:
+    st.stop()
 
-    # Create an OpenAI client.
-    client = OpenAI(api_key=openai_api_key)
+# Create client
+client = OpenAI(api_key=openai_api_key)
 
-    # Create a session state variable to store the chat messages. This ensures that the
-    # messages persist across reruns.
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
+# Chat history
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-    # Display the existing chat messages via `st.chat_message`.
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+# Render history
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-    # Create a chat input field to allow the user to enter a message. This will display
-    # automatically at the bottom of the page.
-    if prompt := st.chat_input("What is up?"):
+# Chat input
+if prompt := st.chat_input("What is up?"):
+    # 1) show user message immediately
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
-        # Store and display the current prompt.
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+    # 2) build messages with system prompt at the very front
+    chat_messages = [
+        {
+            "role": "system",
+            "content": (
+                "너는 유명한 여행 유튜버야. "
+                "입력받은 지역의 여행지와 맛집을 추천해줘. "
+                "여행지와 맛집을 나눠서 숫자 말머리를 넣어 출력해줘."
+            ),
+        },
+        *st.session_state.messages,  # includes the latest user message
+    ]
 
-        # Generate a response using the OpenAI API.
-        stream = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {
-                    # 시스템 메시지는 모델의 기본 역할이나 성격을 정의합니다.
-                    # 모델에게 똑똑하고 창의적이라는 역할을 부여합니다.
-                    "role": "system","content": 
-                    """
-                    너는 유명한 여행 유투버야
-                    입력받은 지역의 여행지와 맞집을 추천해줘
-                    여행지와 맛집을 나눠서 숫자 말머리 넣어서 출력해줘
-                    """
-                },
-                {"role": m["role"], "content": m["content"]}
-                for m in st.session_state.messages
-            ],
-            stream=True,
-        )
-
-        # Stream the response to the chat using `st.write_stream`, then store it in 
-        # session state.
-        with st.chat_message("assistant"):
-            response = st.write_stream(stream)
-        st.session_state.messages.append({"role": "assistant", "content": response})
+    # 3) call OpenAI with streaming + error handling
+    with st.chat_message("assistant"):
+        try:
+            # 컨텍스트 매니저로 열면 연결 정리가 깔끔합니다.
+            stream = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=chat_messages,
+                stream=True,
+            )
+            response_text = st.write_stream(stream)  # typewriter streaming
+            # 4) save assistant message
+            st.session_state.messages.append(
+                {"role": "assistant", "content": response_text}
+            )
+        except Exception as e:
+            st.error("⚠️ Error while generating a response. Check your API key, model access, or network.")
+            with st.expander("Show error details"):
+                st.code("".join(traceback.format_exception_only(type(e), e)))
